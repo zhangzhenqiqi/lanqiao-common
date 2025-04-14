@@ -48,13 +48,13 @@ public class TestGenerator {
     /**
      * 测试套件构建器
      */
-    public static class TestSuiteBuilder<I extends DataInput, O extends DataOutput> {
+    public static class TestSuiteBuilder<I, O, DI extends DataInput<? extends I>, DO extends DataOutput<? extends O>> {
         private final String basePath;
-        private final Solver<I, O> solver;
-        private final List<TestRange<I>> ranges = new ArrayList<>();
-        private final Supplier<I> inputFactory;
-        private final Supplier<O> outputFactory;
-        // 现有属性
+        private final Solver<I, O, DI, DO> solver;
+        private final List<TestRange<DI>> ranges = new ArrayList<>();
+        private final Supplier<DI> inputFactory;
+        private final Supplier<DO> outputFactory;
+        // 更新后处理器的类型
         private TestPostProcessor<I, O> postProcessor;
 
         private int startIndex = 0;
@@ -62,9 +62,9 @@ public class TestGenerator {
 
 
         public TestSuiteBuilder(String basePath,
-                                Solver<I, O> solver,
-                                Supplier<I> inputFactory,
-                                Supplier<O> outputFactory) {
+                                Solver<I, O, DI, DO> solver,
+                                Supplier<DI> inputFactory,
+                                Supplier<DO> outputFactory) {
             this.basePath = basePath;
             this.solver = solver;
             this.inputFactory = inputFactory;
@@ -74,7 +74,7 @@ public class TestGenerator {
         /**
          * 设置后置处理器
          */
-        public TestSuiteBuilder<I, O> setPostProcessor(TestPostProcessor<I, O> postProcessor) {
+        public TestSuiteBuilder<I, O, DI, DO> setPostProcessor(TestPostProcessor<I, O> postProcessor) {
             this.postProcessor = postProcessor;
             return this;
         }
@@ -82,7 +82,7 @@ public class TestGenerator {
         /**
          * 添加测试范围
          */
-        public TestSuiteBuilder<I, O> addRange(int count, Generator<? extends I> generator, String description) {
+        public TestSuiteBuilder<I, O, DI, DO> addRange(int count, Generator<? extends DI> generator, String description) {
             ranges.add(new TestRange<>(count, generator, description));
             return this;
         }
@@ -90,10 +90,11 @@ public class TestGenerator {
         /**
          * 设置起始索引
          */
-        public TestSuiteBuilder<I, O> setStartIndex(int startIndex) {
+        public TestSuiteBuilder<I, O, DI, DO> setStartIndex(int startIndex) {
             this.startIndex = startIndex;
             return this;
         }
+
 
         /**
          * 生成所有测试用例
@@ -101,14 +102,14 @@ public class TestGenerator {
         public void generateAllTestData() throws FileNotFoundException {
             int currentIndex = startIndex;
 
-            for (TestRange<I> range : ranges) {
+            for (TestRange<DI> range : ranges) {
                 System.out.println("正在生成 " + range.getDescription() + " 的 " + range.getCount() + " 个测试用例");
 
                 for (int i = 0; i < range.getCount(); i++) {
                     System.out.println("  正在生成测试用例 " + currentIndex);
 
-                    I input = null;
-                    O output = null;
+                    DI input = null;
+                    DO output = null;
                     boolean isValidTestCase = false;
                     int attempts = 0;
 
@@ -158,13 +159,13 @@ public class TestGenerator {
                 String inPath = basePath + "/" + i + ".in";
                 String outPath = basePath + "/" + i + ".out";
 
-                I input = inputFactory.get();
+                DI input = inputFactory.get();
                 input.readData(new Scanner(Files.newInputStream(Paths.get(inPath))));
 
-                O expectedOutput = outputFactory.get();
+                DO expectedOutput = outputFactory.get();
                 expectedOutput.readData(new Scanner(Files.newInputStream(Paths.get(outPath))));
 
-                O actualOutput = solver.solve(input);
+                DO actualOutput = solver.solve(input);
 
                 boolean passed = expectedOutput.equals(actualOutput);
                 System.out.println("测试用例 " + i + ": " + (passed ? "通过" : "失败"));
@@ -177,14 +178,16 @@ public class TestGenerator {
         }
     }
 
+
     /**
      * 创建测试套件构建器的工厂方法
      */
-    public static <I extends DataInput, O extends DataOutput> TestSuiteBuilder<I, O> createTestSuite(
+    public static <I, O, DI extends DataInput<? extends I>, DO extends DataOutput<? extends O>>
+    TestSuiteBuilder<I, O, DI, DO> createTestSuite(
             String basePath,
-            Solver<I, O> solver,
-            Supplier<I> inputFactory,
-            Supplier<O> outputFactory) {
+            Solver<I, O, DI, DO> solver,
+            Supplier<DI> inputFactory,
+            Supplier<DO> outputFactory) {
         return new TestSuiteBuilder<>(basePath, solver, inputFactory, outputFactory);
     }
 }

@@ -8,7 +8,7 @@ import java.util.*;
  * @Date 2025/4/4 12:32
  */
 public class Main implements SolveAbility<AlgorithmInputData, AlgorithmOutputData> {
-    public long solve(String s, String specialChars) {
+    public long solve1(String s, String specialChars) {
         Set<Character> specialCharSet = new HashSet<>();
         for (char ch : specialChars.toCharArray()) {
             specialCharSet.add(ch);
@@ -45,7 +45,7 @@ public class Main implements SolveAbility<AlgorithmInputData, AlgorithmOutputDat
     @Override
     public AlgorithmOutputData solve(AlgorithmInputData input) {
         AlgorithmOutputData output = new AlgorithmOutputData();
-        output.ans = solve(input.s, "lqb");
+        output.ans = solve1(input.s, "lqb");
         return output;
     }
 

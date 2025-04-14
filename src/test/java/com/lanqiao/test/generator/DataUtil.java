@@ -3,9 +3,11 @@ package com.lanqiao.test.generator;
 import com.lanqiao.common.utils.LocalRandomUtils;
 import com.lanqiao.test.DataInput;
 import com.lanqiao.test.DataOutput;
+import com.lanqiao.test.Solver;
 import com.lanqiao.test.TestGenerator;
 import com.lanqiao.test.adapter.GenericSolverAdapter;
 import com.lanqiao.test.adapter.OutputAdapter;
+import com.lanqiao.test.processor.TestPostProcessor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
@@ -14,8 +16,8 @@ import org.junit.Test;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.Scanner;
-
-import static com.lanqiao.test.TestGenerator.createTestSuite;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
  * @author zhenqi.zhang
@@ -70,6 +72,7 @@ public class DataUtil {
     // ====================================================================
     // 包装类 - 这些类存在于测试项目中，作为ACM代码和测试库之间的桥梁
     // ====================================================================
+//我在想，这个问题能通过动态加载ACM项目中的类来解决吗。。。
 
     /**
      * 字符串魅力值问题输入数据包装类
@@ -78,7 +81,7 @@ public class DataUtil {
     @EqualsAndHashCode(callSuper = true)
     @ToString(callSuper = true)
     @Data
-    public static class AlgorithmInputDataWrapper extends AlgorithmInputData implements AlgorithmInput, DataInput {
+    public static class AlgorithmInputDataWrapper extends AlgorithmInputData implements AlgorithmInput, DataInput<AlgorithmInputData> {
         @Override
         public AlgorithmInputData getData() {
             return this;
@@ -147,19 +150,11 @@ public class DataUtil {
      */
     private GenericSolverAdapter<AlgorithmInputData, AlgorithmOutputData> createStringAttractionAdapter() {
         return new GenericSolverAdapter<AlgorithmInputData, AlgorithmOutputData>(
-                new Main(),
+                new Main()::solve,
                 AlgorithmInputData.class,
                 AlgorithmOutputData.class,
-                "solve",
-                new AlgorithmOutputAdapter()
+                AlgorithmOutputDataWrapper::new
         );
-    }
-
-    public class AlgorithmOutputAdapter implements OutputAdapter<AlgorithmOutputData> {
-        @Override
-        public DataOutput adapt(AlgorithmOutputData output) {
-            return new AlgorithmOutputDataWrapper(output);
-        }
     }
 
     /**
@@ -170,37 +165,39 @@ public class DataUtil {
         GeneratorBuilder<AlgorithmInputDataWrapper> dataInputGeneratorBuilder = GeneratorBuilder.<AlgorithmInputDataWrapper>of(AlgorithmInputDataWrapper::new)
                 .with(StringGeneratorUtils.lowerStringGenerator(10), AlgorithmInputDataWrapper::setS);
 
-        Generator<AlgorithmInputDataWrapper> dataInputGenerator = dataInputGeneratorBuilder.build();
+
+        // 由于AlgorithmInputDataWrapper实现了DataInput<AlgorithmInputData>，这个转换是安全的
+        Generator<DataInput<AlgorithmInputData>> dataInputGenerator =
+                (Generator<DataInput<AlgorithmInputData>>) (Generator<?>) dataInputGeneratorBuilder.build();
 
 
         // 创建适配器
         GenericSolverAdapter<AlgorithmInputData, AlgorithmOutputData> adapter = createStringAttractionAdapter();
-
         // 创建测试套件构建器
-        TestGenerator.TestSuiteBuilder<DataInput, DataOutput> builder = createTestSuite(
+        TestGenerator.TestSuiteBuilder<
+                AlgorithmInputData,
+                AlgorithmOutputData,
+                DataInput<? extends AlgorithmInputData>,
+                DataOutput<? extends AlgorithmOutputData>> builder = TestGenerator.createTestSuite(
                 "/Users/zzq/Desktop/t1",
                 adapter,
                 AlgorithmInputDataWrapper::new,
                 AlgorithmOutputDataWrapper::new
         );
 
-        builder.setPostProcessor(
-                (DataInput in, DataOutput out) -> {
-                    // 这里可以添加后处理逻辑
-                    // 比如：检查输出是否符合预期
-                    AlgorithmInputData input = in.getData();
-                    System.out.println("input: " + input);
-                    AlgorithmOutputData output = out.getData();
-                    return output.ans > 250;
-                }
-        );
+
+        TestPostProcessor<AlgorithmInputData, AlgorithmOutputData> processor =
+                (input, output) -> {
+                    AlgorithmInputData inputData = input.getData();
+                    AlgorithmOutputData outputData = output.getData();
+                    // 验证逻辑
+                    return outputData.ans > 250;
+                };
+
 
         // 添加测试范围
-        builder.addRange(
-                4,
-                dataInputGenerator,
-                "小字符串测试 (1-10)"
-        );
+        builder.addRange(4, dataInputGenerator, "小字符串测试 (1-10)")
+                .setPostProcessor(processor);
         // 生成测试数据
         builder.generateAllTestData();
     }

@@ -5,9 +5,8 @@ import com.lanqiao.test.DataOutput;
 
 /**
  * 测试数据后置处理器接口
- * 用于验证生成的输入数据及其求解结果是否满足特定条件
  */
-public interface TestPostProcessor<I extends DataInput, O extends DataOutput> {
+public interface TestPostProcessor<I, O> {
     /**
      * 检查生成的输入和对应的输出是否满足要求
      *
@@ -15,5 +14,5 @@ public interface TestPostProcessor<I extends DataInput, O extends DataOutput> {
      * @param output 通过求解器得到的输出数据
      * @return 如果满足要求返回true，否则返回false
      */
-     boolean validate(I input, O output);
+    boolean validate(DataInput<? extends I> input, DataOutput<? extends O> output);
 }
