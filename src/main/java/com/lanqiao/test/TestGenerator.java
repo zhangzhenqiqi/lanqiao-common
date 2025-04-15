@@ -2,6 +2,7 @@ package com.lanqiao.test;
 
 import com.lanqiao.test.generator.Generator;
 import com.lanqiao.test.processor.TestPostProcessor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
@@ -14,6 +15,7 @@ import java.util.function.Supplier;
  * ACM测试数据生成库
  * 设计为可与ACM代码结构兼容的通用工具
  */
+@Slf4j
 public class TestGenerator {
     private static final Random random = new Random();
 
@@ -100,28 +102,32 @@ public class TestGenerator {
          * 生成所有测试用例
          */
         public void generateAllTestData() throws FileNotFoundException {
+            log.info("开始生成测试用例，起始索引: {}", startIndex);
             int currentIndex = startIndex;
 
             for (TestRange<DI> range : ranges) {
-                System.out.println("正在生成 " + range.getDescription() + " 的 " + range.getCount() + " 个测试用例");
+                log.info("正在生成 {} 的 {} 个测试用例", range.getDescription(), range.getCount());
 
                 for (int i = 0; i < range.getCount(); i++) {
-                    System.out.println("  正在生成测试用例 " + currentIndex);
+                    log.info("  正在生成测试用例 {}", currentIndex);
 
                     DI input = null;
                     DO output = null;
                     boolean isValidTestCase = false;
                     int attempts = 0;
+                    long solveCostMs = 0;
 
                     // 使用后置处理器进行验证，不满足则重新生成
                     while (!isValidTestCase && attempts < maxAttempts) {
                         attempts++;
                         if (attempts > 1) {
-                            System.out.println("  重新生成第 " + attempts + " 次尝试");
+                            log.info("  重新生成第 {} 次尝试", attempts);
                         }
 
                         input = range.getGenerator().generate();
+                        long solveStartStamp = System.currentTimeMillis();
                         output = solver.solve(input);
+                        solveCostMs = System.currentTimeMillis() - solveStartStamp;
 
                         // 如果没有后置处理器或者通过了验证，则接受此测试用例
                         if (postProcessor == null || postProcessor.validate(input, output)) {
@@ -130,7 +136,7 @@ public class TestGenerator {
                     }
 
                     if (!isValidTestCase) {
-                        System.out.println("  警告：达到最大尝试次数 " + maxAttempts + "，使用最后一次生成的测试用例");
+                        log.warn("  警告：达到最大尝试次数 {}，使用最后一次生成的测试用例", maxAttempts);
                     }
 
                     String inPath = basePath + "/" + currentIndex + ".in";
@@ -142,13 +148,13 @@ public class TestGenerator {
                         output.writeData(outWriter);
                     }
 
-                    System.out.println("  结果: " + output +
-                            (isValidTestCase ? " (通过验证)" : " (未通过验证，但已达到最大尝试次数)"));
+                    log.info("  结果= {} , 耗时{}ms, {}", output, solveCostMs,
+                            (isValidTestCase ? "(通过验证)" : "(未通过验证，但已达到最大尝试次数)"));
                     currentIndex++;
                 }
             }
 
-            System.out.println("共生成 " + (currentIndex - startIndex) + " 个测试用例");
+            log.info("共生成 {} 个测试用例", (currentIndex - startIndex));
         }
 
         /**
@@ -168,11 +174,11 @@ public class TestGenerator {
                 DO actualOutput = solver.solve(input);
 
                 boolean passed = expectedOutput.equals(actualOutput);
-                System.out.println("测试用例 " + i + ": " + (passed ? "通过" : "失败"));
+                log.info("测试用例 {}: {}", i, (passed ? "通过" : "失败"));
                 if (!passed) {
-                    System.out.println("  输入: " + input);
-                    System.out.println("  预期输出: " + expectedOutput);
-                    System.out.println("  实际输出: " + actualOutput);
+                    log.error("  输入: {}", input);
+                    log.error("  预期输出: {}", expectedOutput);
+                    log.error("  实际输出: {}", actualOutput);
                 }
             }
         }
