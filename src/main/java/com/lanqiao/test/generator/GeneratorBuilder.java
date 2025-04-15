@@ -5,6 +5,7 @@ import lombok.Getter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -44,11 +45,39 @@ public class GeneratorBuilder<T> {
         return this;
     }
 
+    // 添加到GeneratorBuilder类中
+    public <V, D1, D2> GeneratorBuilder<T> withMultiDependents(
+            Function<T, D1> dependency1Getter,
+            Function<T, D2> dependency2Getter,
+            BiFunction<D1, D2, Generator<V>> generatorProvider,
+            BiConsumer<T, V> setter) {
+        fieldConfigs.add(new MultiDependentFieldConfig<>(
+                dependency1Getter,
+                dependency2Getter,
+                generatorProvider,
+                setter));
+        return this;
+    }
+
+    // 可变参数版本，支持任意数量的依赖
+    public <V> GeneratorBuilder<T> withDependents(
+            List<Function<T, ?>> dependencyGetters,
+            Function<List<?>, Generator<V>> generatorProvider,
+            BiConsumer<T, V> setter) {
+        fieldConfigs.add(new FlexibleDependentFieldConfig<>(
+                dependencyGetters,
+                generatorProvider,
+                setter));
+        return this;
+    }
+
     // 生成方法
     public Generator<T> build() {
         return () -> {
+            //创建一个empty实例
             T instance = factory.get();
 
+            //遍历所有的配置
             for (FieldConfig<T, ?> config : fieldConfigs) {
                 config.applyTo(instance);
             }
@@ -61,6 +90,7 @@ public class GeneratorBuilder<T> {
     /**
      * 配置类，存储 generator 和 setter
      * 通过generator生产value并用setter进目标字段中
+     *
      * @param <T>
      * @param <V>
      */
@@ -100,6 +130,58 @@ public class GeneratorBuilder<T> {
             D dependencyValue = dependency.apply(instance);
             //根据获取到的值获取指定的generator
             Generator<V> generator = generatorProvider.apply(dependencyValue);
+            V value = generator.generate();
+            getSetter().accept(instance, value);
+        }
+    }
+
+    // 两个新的配置类
+    private static class MultiDependentFieldConfig<T, V, D1, D2> extends FieldConfig<T, V> {
+        private final Function<T, D1> dependency1;
+        private final Function<T, D2> dependency2;
+        private final BiFunction<D1, D2, Generator<V>> generatorProvider;
+
+        public MultiDependentFieldConfig(
+                Function<T, D1> dependency1,
+                Function<T, D2> dependency2,
+                BiFunction<D1, D2, Generator<V>> generatorProvider,
+                BiConsumer<T, V> setter) {
+            super(null, setter);
+            this.dependency1 = dependency1;
+            this.dependency2 = dependency2;
+            this.generatorProvider = generatorProvider;
+        }
+
+        @Override
+        public void applyTo(T instance) {
+            D1 value1 = dependency1.apply(instance);
+            D2 value2 = dependency2.apply(instance);
+            Generator<V> generator = generatorProvider.apply(value1, value2);
+            V value = generator.generate();
+            getSetter().accept(instance, value);
+        }
+    }
+
+    private static class FlexibleDependentFieldConfig<T, V> extends FieldConfig<T, V> {
+        private final List<Function<T, ?>> dependencyGetters;
+        private final Function<List<?>, Generator<V>> generatorProvider;
+
+        public FlexibleDependentFieldConfig(
+                List<Function<T, ?>> dependencyGetters,
+                Function<List<?>, Generator<V>> generatorProvider,
+                BiConsumer<T, V> setter) {
+            super(null, setter);
+            this.dependencyGetters = dependencyGetters;
+            this.generatorProvider = generatorProvider;
+        }
+
+        @Override
+        public void applyTo(T instance) {
+            List<Object> dependencyValues = new ArrayList<>();
+            for (Function<T, ?> getter : dependencyGetters) {
+                dependencyValues.add(getter.apply(instance));
+            }
+            Generator<V> generator = generatorProvider.apply(dependencyValues);
             V value = generator.generate();
             getSetter().accept(instance, value);
         }

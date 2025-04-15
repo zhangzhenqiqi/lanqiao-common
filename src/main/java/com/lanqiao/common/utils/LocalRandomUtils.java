@@ -183,6 +183,13 @@ public class LocalRandomUtils {
         return generateArray(n, 0, bound);
     }
 
+    /**
+     * 生成一个长度为n的随机数组，范围在origin到bound之间
+     * @param n
+     * @param origin
+     * @param bound
+     * @return
+     */
     public static int[] generateArray(int n, int origin, int bound) {
         int[] arr = new int[n];
         for (int i = 0; i < n; i++) {
@@ -225,5 +232,62 @@ public class LocalRandomUtils {
 //	public static <T> T (double probability, T t1, T t2) {
 //		return getLocalRandom().nextDouble() < probability ? t1 : t2;
 //	}
+    @SuppressWarnings("unchecked")
+    public static <T extends Number> T generateRandomNumber(Class<T> clazz, T left, T right) {
+        if (clazz == Integer.class) {
+            int min = left.intValue();
+            int max = right.intValue();
+            if (min >= max) {
+                throw new IllegalArgumentException("左边界必须小于右边界");
+            }
+            // nextInt(n)生成0到n-1的随机数，所以需要加1来包含上边界
+            return (T) Integer.valueOf(getLocalRandom().nextInt(min, max));
+        } else if (clazz == Double.class) {
+            double min = left.doubleValue();
+            double max = right.doubleValue();
+            if (min >= max) {
+                throw new IllegalArgumentException("左边界必须小于右边界");
+            }
+            // random.nextDouble()生成[0,1)的随机数
+            return (T) Double.valueOf(getLocalRandom().nextDouble(min, max));
+        } else if (clazz == Float.class) {
+            double min = left.doubleValue();
+            double max = right.doubleValue();
+            if (min >= max) {
+                throw new IllegalArgumentException("左边界必须小于右边界");
+            }
+            return (T) Float.valueOf((float) getLocalRandom().nextDouble(min, max));
+        } else if (clazz == Long.class) {
+            long min = left.longValue();
+            long max = right.longValue();
+            if (min >= max) {
+                throw new IllegalArgumentException("左边界必须小于右边界");
+            }
+            return (T) Long.valueOf(getLocalRandom().nextLong(min, max));
+        } else if (clazz == Byte.class) {
+            byte min = left.byteValue();
+            byte max = right.byteValue();
+            if (min >= max) {
+                throw new IllegalArgumentException("左边界必须小于右边界");
+            }
+            return (T) Byte.valueOf((byte) (getLocalRandom().nextInt(min, max)));
+        } else if (clazz == Short.class) {
+            short min = left.shortValue();
+            short max = right.shortValue();
+            if (min >= max) {
+                throw new IllegalArgumentException("左边界必须小于右边界");
+            }
+            return (T) Short.valueOf((short) (getLocalRandom().nextInt(min, max)));
+        } else {
+            throw new IllegalArgumentException("不支持的数字类型: " + clazz.getName());
+        }
+    }
 
+    public static <T extends Number> List<T> generateRandomNumberList(Class<T> clazz, int size, T left, T right) {
+        List<T> list = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            list.add(generateRandomNumber(clazz, left, right));
+        }
+        return list;
+    }
 }
